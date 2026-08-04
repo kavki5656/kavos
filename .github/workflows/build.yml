@@ -23,7 +23,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 'ticket-reserve-api/go.mod'
+        go-version-file: go.mod
+      working-directory: ./ticket-reserve-api
 
     # 3. 実際にビルド（コンパイル）できるかテストする！
     - name: Build
