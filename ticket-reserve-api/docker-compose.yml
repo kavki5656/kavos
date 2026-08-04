@@ -1,0 +1,39 @@
+services:
+  # 1. APIコンテナ
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_USER=ticket_user
+      - DB_PASSWORD=secret
+      - DB_NAME=ticket_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  
+  # 2. データベースコンテナ（MySQL）
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_secret
+      - MYSQL_DATABASE=ticket_db
+      - MYSQL_USER=ticket_user
+      - MYSQL_PASSWORD=secret
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_secret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+# 3. ボリューム（仮想のEBSボリューム）の定義
+volumes:
+  db-data:
