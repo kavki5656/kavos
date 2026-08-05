@@ -1,9 +1,8 @@
 # Ticket Reservation API
 
 ## 概要
-Docer Composeを利用して構築した、GoとMySQLによるチケット予約システムのローカル環境です。
-Go,MySQL,Dockerで実装して、AWS上の実行基盤をTerraformで構築しています
-学習目的で構築している環境です。
+一時的な高負荷を想定したチケット予約APIの学習用プロジェクト。
+Go/MySQL/Dockerでアプリケーションを実装して、AWS上の実行基盤をTerraformで構築しています。
 
 ## 現在のスコープ
 | レイヤ | 状態 |
@@ -54,9 +53,33 @@ graph TB
 ```
 
 ## 動作確認
-①ヘルスチェック
 
-②チケット一覧
+### 起動
+
+```bash
+cd ticket-reserve-api
+docker-compose up -d --build
+```
+
+>初回起動時のみ`init.sql`が実行されます。スキーマを変更した場合は `docker compose down -v` でボリュームごと削除してください。
+
+### エンドポイント
+
+**ヘルスチェック**
+
+```bash
+$ curl -i http://localhost:8080/health
+HTTP/1.1 200 OK
+Date: Wed, 05 Aug 2026 05:51:34 GMT
+Content-Length: 2
+Content-Type: text/plain; charset=utf-8
+
+OK
+```
+
+**チケット一覧**
+
+```bash
 $ curl -s http://localhost:8080/tickets | jq
 [
   {
@@ -72,8 +95,11 @@ $ curl -s http://localhost:8080/tickets | jq
     "available": 5
   }
 ]
+```
 
-③予約
+**予約**
+
+```bash
 $ curl -i -X POST http://localhost:8080/reserve \
 > -H "Content-Type: application/json" \
 > -d '{"ticket_id":"T001","amount":1}'
@@ -83,16 +109,58 @@ Date: Tue, 04 Aug 2026 22:38:45 GMT
 Content-Length: 38
 
 {"message":"Reservation successful!"}
+```
 
+### 同時実行時の在庫整合性
+
+**在庫5枚のチケットに7回リクエスト → 200が5回、409が2回。**
+
+```bash
+$ for i in $(seq 1 7); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/reserve \
+    -H "Content-Type: application/json" \
+    -d '{"ticket_id":"T002","amount":1}'
+done
+200
+200
+200
+200
+200
+409
+409
+```
+
+**20並列でリクエスト → 20件すべて成功し、在庫はちょうど20減少。**
+
+```bash
+$ seq 1 20 | xargs -P 20 -I{} curl -s -o /dev/null -w "%{http_code}\n" \
+  -X POST http://localhost:8080/reserve \
+  -H "Content-Type: application/json" \
+  -d '{"ticket_id":"T001","amount":1}'
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+200
+```
 
 ## 技術選定の理由（8/6）
 
 ## 設計上のトレードオフ（8/7）
 
 ## 今後の展望（8/7）
-
-## 起動手順
-1. リポジトリをクローンする
-2. 以下のコマンドを実行する
-    `docker-compose up -d --build`
-3. http://localhost:8080/tickets にアクセスしてデータが返るか確認する
